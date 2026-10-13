@@ -242,7 +242,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 DROP POLICY IF EXISTS "Public can view company settings" ON public.company_settings;
 CREATE POLICY "Public can view company settings"
     ON public.company_settings FOR SELECT
-    TO authenticated
+    TO public
     USING (true);
 
 DROP POLICY IF EXISTS "Dirut can update company settings" ON public.company_settings;
@@ -272,6 +272,12 @@ CREATE POLICY "Users can update own profile"
 DROP POLICY IF EXISTS "Dirut can update any profile" ON public.profiles;
 CREATE POLICY "Dirut can update any profile"
     ON public.profiles FOR ALL
+    TO authenticated
+    USING (public.is_dirut_or_admin());
+
+DROP POLICY IF EXISTS "Dirut can delete profiles" ON public.profiles;
+CREATE POLICY "Dirut can delete profiles"
+    ON public.profiles FOR DELETE
     TO authenticated
     USING (public.is_dirut_or_admin());
 
