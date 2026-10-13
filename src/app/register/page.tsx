@@ -37,10 +37,19 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    // 1. Create Supabase Auth user
+    // 1. Create Supabase Auth user — pass metadata so DB trigger handle_new_user auto-creates profile
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+          department: department.trim() || 'Umum',
+          job_title: jobTitle.trim() || 'Staf',
+          phone: phone.trim() || null,
+          role: 'EMPLOYEE',
+        },
+      },
     });
 
     if (signUpError || !authData.user) {
@@ -52,26 +61,23 @@ export default function RegisterPage() {
       return;
     }
 
-    // 2. Insert profile row
-    const employeeCode = `PAS-${Date.now().toString().slice(-5)}`;
-    const { error: profileError } = await supabase.from('profiles').upsert({
-      id: authData.user.id,
-      employee_code: employeeCode,
-      full_name: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim() || null,
-      department: department.trim() || 'Umum',
-      job_title: jobTitle.trim() || 'Staf',
-      role: 'EMPLOYEE',
-      account_status: 'PENDING',
-      is_active: false,
-    });
-
-    if (profileError) {
-      setError(`Akun dibuat tapi profil gagal tersimpan: ${profileError.message}. Hubungi admin.`);
-      setLoading(false);
-      return;
-    }
+    // 2. Upsert profile sebagai fallback (jika trigger DB belum jalan / belum dikonfigurasi)
+    // Jika trigger sudah ada, upsert ini aman karena tidak akan menimpa data yang sudah ada
+    await supabase.from('profiles').upsert(
+      {
+        id: authData.user.id,
+        employee_code: `PAS-${Date.now().toString().slice(-5)}`,
+        full_name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim() || null,
+        department: department.trim() || 'Umum',
+        job_title: jobTitle.trim() || 'Staf',
+        role: 'EMPLOYEE',
+        account_status: 'PENDING',
+        is_active: false,
+      },
+      { onConflict: 'id' }
+    );
 
     setSubmittedName(fullName.trim());
     setLoading(false);

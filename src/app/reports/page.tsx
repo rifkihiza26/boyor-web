@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { useAuth } from '@/context/AuthContext';
 import { SupabaseService } from '@/lib/supabase-services';
@@ -181,10 +182,10 @@ export default function ReportsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-              Buku Rekap &amp; Laporan Kantor
+              Rekap Presensi & Kehadiran Pegawai
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              Filter dan unduh arsip rekapan presensi dan reimbursement staf dalam format resmi Excel atau PDF.
+              Filter dan unduh arsip rekapan presensi seluruh staf dalam format resmi Excel (.xlsx) atau PDF.
             </p>
           </div>
 
@@ -209,30 +210,18 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex border-b border-slate-300">
-          <button
-            type="button"
-            onClick={() => setActiveTab('ATTENDANCE')}
-            className={`pb-3 px-4 text-xs font-bold transition border-b-2 cursor-pointer ${
-              activeTab === 'ATTENDANCE'
-                ? 'border-[#0f172a] text-[#0f172a]'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
+        {/* Info Banner: Shortcut to Reimbursement */}
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-slate-500" />
+            <span>Membutuhkan rekapan keuangan dan nota staf?</span>
+          </div>
+          <Link
+            href="/reimbursements"
+            className="text-indigo-600 hover:text-indigo-800 font-semibold underline underline-offset-2 flex items-center gap-1"
           >
-            Rekap Presensi Karyawan
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('REIMBURSEMENT')}
-            className={`pb-3 px-4 text-xs font-bold transition border-b-2 cursor-pointer ${
-              activeTab === 'REIMBURSEMENT'
-                ? 'border-[#0f172a] text-[#0f172a]'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Rekap Pengeluaran &amp; Reimbursement
-          </button>
+            Buka Halaman Rekap Reimbursement →
+          </Link>
         </div>
 
         {/* FILTER BAR - HARI, TANGGAL, BULAN, TAHUN, RANGE CUSTOM */}
