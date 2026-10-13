@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { RoleBadge } from '@/components/ui/StatusBadge';
@@ -30,15 +30,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     role,
     switchUser,
     settings,
+    isLoaded,
+    signOut,
   } = useAuth();
   const { showToast } = useToast();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const mounted = React.useSyncExternalStore(
     () => () => {},
     () => true,
     () => false
   );
+
+  React.useEffect(() => {
+    if (isLoaded && !currentUser.id && pathname !== '/login' && pathname !== '/register') {
+      router.push('/login');
+    }
+  }, [isLoaded, currentUser.id, pathname, router]);
 
   // Common navigation
   const navItems = [
