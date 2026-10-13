@@ -9,44 +9,71 @@ export function exportAttendanceToExcel(
   employees: Employee[],
   filterTitle: string = 'Rekap Presensi Karyawan'
 ) {
-  const data = records.map((rec, index) => {
+  // Metadata / Header summary rows
+  const headerData = [
+    ['PT PROTEKSI ALFA SOLUSI (PROASI)'],
+    [filterTitle],
+    [`Dicetak pada: ${new Date().toLocaleString('id-ID')} | Total Rekapan: ${records.length} data`],
+    [], // Empty row separator
+  ];
+
+  const tableHeaders = [
+    'No',
+    'Tanggal',
+    'Kode Pegawai',
+    'Nama Pegawai',
+    'Departemen / Divisi',
+    'Jam Masuk',
+    'Jam Pulang',
+    'Durasi Kerja',
+    'Status Presensi',
+    'Ketepatan Waktu',
+    'Catatan',
+  ];
+
+  const tableRows = records.map((rec, index) => {
     const emp = employees.find((e) => e.id === rec.employeeId);
-    return {
-      No: index + 1,
-      Tanggal: rec.date,
-      'Kode Pegawai': emp?.employeeCode || rec.employeeId,
-      'Nama Pegawai': emp?.fullName || '-',
-      Departemen: emp?.department || '-',
-      'Jam Masuk': rec.checkInAt || '-',
-      'Jam Pulang': rec.checkOutAt || '-',
-      'Durasi (Menit)': rec.totalMinutes || 0,
-      Status: rec.status === 'SELESAI' ? 'Selesai' : rec.status === 'SEDANG_BEKERJA' ? 'Sedang Bekerja' : 'Belum Check-In',
-      Keterlambatan: rec.isLate ? 'Terlambat' : 'Tepat Waktu',
-      Keterangan: rec.note || '-',
-    };
+    const durasiText = rec.totalMinutes 
+      ? `${Math.floor(rec.totalMinutes / 60)} Jam ${rec.totalMinutes % 60} Menit` 
+      : '-';
+
+    return [
+      index + 1,
+      rec.date,
+      emp?.employeeCode || rec.employeeId,
+      emp?.fullName || '-',
+      emp?.department || '-',
+      rec.checkInAt || '-',
+      rec.checkOutAt || '-',
+      durasiText,
+      rec.status === 'SELESAI' ? 'Selesai' : rec.status === 'SEDANG_BEKERJA' ? 'Sedang Bekerja' : 'Belum Check-In',
+      rec.isLate ? 'Terlambat' : 'Tepat Waktu',
+      rec.note || '-',
+    ];
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(data);
+  const fullData = [...headerData, tableHeaders, ...tableRows];
+  const worksheet = XLSX.utils.aoa_to_sheet(fullData);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Presensi');
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap Presensi');
 
-  // Set column widths
+  // Set professional column widths
   worksheet['!cols'] = [
-    { wch: 5 },  // No
-    { wch: 12 }, // Tanggal
-    { wch: 14 }, // Kode
-    { wch: 22 }, // Nama
-    { wch: 16 }, // Departemen
-    { wch: 12 }, // Masuk
-    { wch: 12 }, // Pulang
-    { wch: 14 }, // Durasi
-    { wch: 16 }, // Status
-    { wch: 14 }, // Terlambat
-    { wch: 30 }, // Keterangan
+    { wch: 6 },  // No
+    { wch: 14 }, // Tanggal
+    { wch: 16 }, // Kode Pegawai
+    { wch: 26 }, // Nama Pegawai
+    { wch: 20 }, // Departemen
+    { wch: 14 }, // Jam Masuk
+    { wch: 14 }, // Jam Pulang
+    { wch: 20 }, // Durasi Kerja
+    { wch: 18 }, // Status
+    { wch: 16 }, // Ketepatan Waktu
+    { wch: 32 }, // Catatan
   ];
 
   const dateNow = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(workbook, `Rekap_Presensi_${dateNow}.xlsx`);
+  XLSX.writeFile(workbook, `Rekap_Presensi_PROASI_${dateNow}.xlsx`);
 }
 
 export function exportAttendanceToPDF(
@@ -56,18 +83,41 @@ export function exportAttendanceToPDF(
 ) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-  // Header Title
-  doc.setFontSize(16);
+  // Top header banner
+  doc.setFillColor(15, 23, 42); // Navy #0f172a
+  doc.rect(0, 0, 297, 24, 'F');
+
+  // Company Name
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('PT PROTEKSI ALFA SOLUSI (PROASI)', 14, 15);
+  doc.setTextColor(255, 255, 255);
+  doc.text('PT PROTEKSI ALFA SOLUSI (PROASI)', 14, 10);
 
-  doc.setFontSize(11);
+  // Subtitle / Portal
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(filterTitle, 14, 22);
+  doc.setTextColor(203, 213, 225); // Slate 300
+  doc.text('PORTAL SISTEM PRESENSI & OPERASIONAL STAF', 14, 16);
 
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')} | Total Data: ${records.length} rekapan`, 14, 28);
+  // Date Printed on Top Right
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184); // Slate 400
+  doc.text(`Waktu Cetak: ${new Date().toLocaleString('id-ID')}`, 283, 10, { align: 'right' });
+  doc.text(`Total Data: ${records.length} rekapan presensi`, 283, 16, { align: 'right' });
+
+  // Title of Report
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text(filterTitle, 14, 32);
+
+  // Stats brief
+  const hadirCount = records.filter(r => r.status === 'SELESAI' || r.status === 'SEDANG_BEKERJA').length;
+  const lateCount = records.filter(r => r.isLate).length;
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Ringkasan: Hadir: ${hadirCount} | Terlambat: ${lateCount} | Tepat Waktu: ${hadirCount - lateCount}`, 14, 37);
 
   const tableData = records.map((rec, index) => {
     const emp = employees.find((e) => e.id === rec.employeeId);
@@ -81,15 +131,21 @@ export function exportAttendanceToPDF(
       rec.checkOutAt || '-',
       rec.totalMinutes ? `${Math.floor(rec.totalMinutes / 60)}j ${rec.totalMinutes % 60}m` : '-',
       rec.isLate ? 'Terlambat' : 'Tepat Waktu',
+      rec.status === 'SELESAI' ? 'Selesai' : rec.status === 'SEDANG_BEKERJA' ? 'Aktif' : 'Standby',
       rec.note || '-',
     ];
   });
 
   autoTable(doc, {
-    startY: 32,
-    head: [['No', 'Tanggal', 'NIK', 'Nama Pegawai', 'Divisi', 'Masuk', 'Pulang', 'Durasi', 'Ket. Waktu', 'Catatan']],
+    startY: 41,
+    head: [['No', 'Tanggal', 'NIK', 'Nama Pegawai', 'Divisi', 'Masuk', 'Pulang', 'Durasi', 'Ket. Waktu', 'Status', 'Catatan']],
     body: tableData,
     theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 8,
+      cellPadding: 2,
+    },
     headStyles: {
       fillColor: [15, 23, 42], // Deep navy (#0f172a)
       textColor: [255, 255, 255],
@@ -104,22 +160,31 @@ export function exportAttendanceToPDF(
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
       1: { halign: 'center', cellWidth: 22 },
-      2: { halign: 'center', cellWidth: 20 },
-      3: { cellWidth: 42 },
-      4: { cellWidth: 28 },
-      5: { halign: 'center', cellWidth: 18 },
-      6: { halign: 'center', cellWidth: 18 },
-      7: { halign: 'center', cellWidth: 20 },
-      8: { halign: 'center', cellWidth: 24 },
-      9: { cellWidth: 'auto' },
+      2: { halign: 'center', cellWidth: 18 },
+      3: { cellWidth: 40 },
+      4: { cellWidth: 26 },
+      5: { halign: 'center', cellWidth: 16 },
+      6: { halign: 'center', cellWidth: 16 },
+      7: { halign: 'center', cellWidth: 18 },
+      8: { halign: 'center', cellWidth: 22 },
+      9: { halign: 'center', cellWidth: 18 },
+      10: { cellWidth: 'auto' },
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
+    didDrawPage: (data) => {
+      // Footer page number
+      const str = `Halaman ${data.pageNumber}`;
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(str, 283, 202, { align: 'right' });
+      doc.text('Dokumen Resmi PT Proteksi Alfa Solusi • Dokumen ini dihasilkan secara otomatis oleh sistem.', 14, 202);
+    },
   });
 
   const dateNow = new Date().toISOString().slice(0, 10);
-  doc.save(`Rekap_Presensi_${dateNow}.pdf`);
+  doc.save(`Rekap_Presensi_PROASI_${dateNow}.pdf`);
 }
 
 export function exportReimbursementsToExcel(

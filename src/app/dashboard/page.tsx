@@ -158,7 +158,8 @@ export default function DashboardPage() {
                   href="/reports"
                   className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold rounded transition flex items-center gap-1.5"
                 >
-                  Rekap &amp; Ekspor CSV
+                  <Users className="w-4 h-4 text-slate-500" />
+                  Rekap &amp; Unduh (PDF/Excel)
                 </Link>
               </>
             )}

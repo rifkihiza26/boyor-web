@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = [
     { label: 'Beranda Rekap', href: '/dashboard', icon: LayoutDashboard, roles: ['ALL'] },
     // Pegawai
-    { label: 'Absensi Hari Ini', href: '/attendance', icon: Clock, roles: ['ALL'] },
+    { label: 'Absensi Hari Ini', href: '/attendance', icon: Clock, roles: ['EMPLOYEE'] },
     { label: 'Riwayat Absensi', href: '/attendance/history', icon: History, roles: ['EMPLOYEE'] },
     { label: 'Catat Reimbursement', href: '/reimbursements', icon: Receipt, roles: ['EMPLOYEE'] },
     // Dirut (Pencatatan & Perekapan Lengkap)
@@ -299,15 +299,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span>Beranda</span>
             </Link>
 
-            <Link
-              href="/attendance"
-              className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-medium transition ${
-                pathname === '/attendance' ? 'text-slate-900 font-bold' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Clock className="w-5 h-5 mb-0.5" />
-              <span>Absen</span>
-            </Link>
+            {role === 'EMPLOYEE' ? (
+              <Link
+                href="/attendance"
+                className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-medium transition ${
+                  pathname === '/attendance' ? 'text-slate-900 font-bold' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Clock className="w-5 h-5 mb-0.5" />
+                <span>Absen</span>
+              </Link>
+            ) : (
+              <Link
+                href="/reports"
+                className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-medium transition ${
+                  pathname === '/reports' ? 'text-slate-900 font-bold' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Users className="w-5 h-5 mb-0.5" />
+                <span>Rekap</span>
+              </Link>
+            )}
 
             <Link
               href="/reimbursements"

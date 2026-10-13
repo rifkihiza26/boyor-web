@@ -18,6 +18,37 @@ export default function AttendancePage() {
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [recentHistory, setRecentHistory] = useState<AttendanceRecord[]>([]);
 
+  // Dirut tidak perlu absen - arahkan langsung ke halaman Rekap Presensi
+  if (role === 'DIRUT') {
+    return (
+      <AppShell>
+        <div className="max-w-2xl mx-auto py-12 text-center bg-white rounded-xl border border-slate-200 p-8 shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 mx-auto flex items-center justify-center mb-4">
+            <Clock className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900">Direktur Utama Tidak Melakukan Presensi Harian</h2>
+          <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
+            Sebagai Direktur Utama, akun Anda tidak memerlukan absensi mandiri. Anda dapat memantau dan mengunduh seluruh rekapan absensi pegawai di menu Rekap Presensi.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link
+              href="/reports"
+              className="px-4 py-2 bg-[#0f172a] text-white rounded-lg text-xs font-semibold hover:bg-[#1e293b] transition"
+            >
+              Buka Rekap Presensi Pegawai
+            </Link>
+            <Link
+              href="/dashboard"
+              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200 transition"
+            >
+              Kembali ke Beranda
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   const fetchData = useCallback(async () => {
     if (!currentUser.id) return;
     const [today, history] = await Promise.all([
