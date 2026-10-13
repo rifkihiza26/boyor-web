@@ -24,6 +24,7 @@ import {
   Mail,
   Briefcase,
   UserX,
+  Trash2,
 } from 'lucide-react';
 
 export default function ApprovalsPage() {
@@ -91,6 +92,18 @@ export default function ApprovalsPage() {
         refreshData();
       } else {
         showToast(res.message, 'error');
+      }
+    }
+  };
+
+  const handleDeleteAccount = async (employeeId: string, fullName: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus akun pegawai ${fullName} secara permanen? Data akun dan pendaftaran akan dihapus.`)) {
+      const res = await SupabaseService.deleteEmployee(employeeId);
+      if (res.success) {
+        showToast(res.message || `Akun ${fullName} berhasil dihapus.`, 'success');
+        refreshData();
+      } else {
+        showToast(res.message || 'Gagal menghapus akun.', 'error');
       }
     }
   };
@@ -298,10 +311,19 @@ export default function ApprovalsPage() {
                       <button
                         type="button"
                         onClick={() => handleRejectAccount(emp.id, emp.fullName)}
-                        className="py-2 px-3 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer"
+                        className="py-2 px-3 bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer"
+                        title="Tolak Pendaftaran"
                       >
                         <UserX className="w-4 h-4" />
                         <span>Tolak</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAccount(emp.id, emp.fullName)}
+                        className="py-2 px-2.5 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer"
+                        title="Hapus Akun Permanen"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

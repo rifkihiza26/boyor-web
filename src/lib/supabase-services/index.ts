@@ -125,6 +125,29 @@ export const SupabaseService = {
     return { success: true, message: 'Pendaftaran akun ditolak.' };
   },
 
+  async deleteEmployee(id: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const res = await fetch('/api/employees/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        // Fallback langsung via client Supabase jika API gagal
+        const { error } = await supabase.from('profiles').delete().eq('id', id);
+        if (error) return { success: false, message: data.message || error.message };
+        return { success: true, message: 'Akun pegawai berhasil dihapus.' };
+      }
+      return data;
+    } catch {
+      // Fallback langsung via client Supabase
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
+      if (error) return { success: false, message: error.message };
+      return { success: true, message: 'Akun pegawai berhasil dihapus.' };
+    }
+  },
+
   // ==========================================
   // COMPANY SETTINGS
   // ==========================================

@@ -18,6 +18,8 @@ import {
   Building2,
   CheckCircle2,
   XCircle,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function EmployeesManagementPage() {
@@ -37,6 +39,11 @@ export default function EmployeesManagementPage() {
   // Employee Edit / Add Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+
+  // Employee Delete Modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form State
   const [employeeCode, setEmployeeCode] = useState('');
@@ -144,6 +151,30 @@ export default function EmployeesManagementPage() {
       );
     } else {
       showToast(res.message || 'Gagal mengubah status.', 'error');
+    }
+  };
+
+  const handleDeleteClick = (emp: Employee) => {
+    if (emp.role === 'DIRUT') {
+      showToast('Akun Direktur Utama tidak dapat dihapus.', 'error');
+      return;
+    }
+    setEmployeeToDelete(emp);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!employeeToDelete) return;
+    setIsDeleting(true);
+    const res = await SupabaseService.deleteEmployee(employeeToDelete.id);
+    setIsDeleting(false);
+    if (res.success) {
+      showToast(res.message || `Akun ${employeeToDelete.fullName} berhasil dihapus.`, 'success');
+      setIsDeleteModalOpen(false);
+      setEmployeeToDelete(null);
+      refreshData();
+    } else {
+      showToast(res.message || 'Gagal menghapus akun.', 'error');
     }
   };
 
@@ -296,13 +327,23 @@ export default function EmployeesManagementPage() {
                           onClick={() => handleToggleActive(emp)}
                           className={`p-1.5 rounded-md transition ${
                             emp.isActive
-                              ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                              ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
                               : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
                           }`}
                           title={emp.isActive ? 'Nonaktifkan' : 'Aktifkan'}
                         >
                           <Power className="w-3.5 h-3.5" />
                         </button>
+                        {emp.role !== 'DIRUT' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteClick(emp)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                            title="Hapus Akun Karyawan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -471,6 +512,70 @@ export default function EmployeesManagementPage() {
               </div>
             </div>
           </div>
+        </Modal>
+
+        {/* Modal Konfirmasi Hapus Karyawan */}
+        <Modal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            if (!isDeleting) {
+              setIsDeleteModalOpen(false);
+              setEmployeeToDelete(null);
+            }
+          }}
+          title="Konfirmasi Hapus Akun Karyawan"
+          description="Tindakan ini permanen dan akan menghapus data profil serta akses akun."
+          maxWidth="md"
+          footer={
+            <>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setEmployeeToDelete(null);
+                }}
+                className="px-4 py-2 border border-slate-300 rounded text-slate-700 hover:bg-slate-100 font-medium text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded text-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Menghapus...' : 'Ya, Hapus Permanen'}</span>
+              </button>
+            </>
+          }
+        >
+          {employeeToDelete && (
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded flex items-start gap-2.5 text-rose-800">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  Apakah Anda yakin ingin menghapus akun pegawai <strong>{employeeToDelete.fullName}</strong> ({employeeToDelete.email})? Tindakan ini tidak dapat dibatalkan.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5 text-slate-700">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Kode Pegawai:</span>
+                  <span className="font-mono font-semibold">{employeeToDelete.employeeCode}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Departemen / Jabatan:</span>
+                  <span className="font-semibold">{employeeToDelete.department} • {employeeToDelete.jobTitle}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Hak Akses:</span>
+                  <span className="font-semibold">{employeeToDelete.role}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </Modal>
       </div>
     </AppShell>
