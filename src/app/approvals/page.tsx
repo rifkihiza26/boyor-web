@@ -243,14 +243,6 @@ export default function ApprovalsPage() {
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                   Semua pegawai yang mendaftar telah disetujui atau belum ada pendaftaran baru.
                 </p>
-                <div className="mt-5">
-                  <Link
-                    href="/register"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition"
-                  >
-                    Simulasi: Coba Daftarkan Pegawai Baru
-                  </Link>
-                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
