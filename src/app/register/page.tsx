@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase/client';
-import { Building2, UserPlus, ArrowLeft, Clock, ShieldCheck, AlertCircle } from 'lucide-react';
+import { UserPlus, ArrowLeft, Clock, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
@@ -79,8 +80,15 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded bg-[#0f172a] text-white mb-4 border border-[#1e293b]">
-          <Building2 className="w-6 h-6" />
+        <div className="inline-flex items-center justify-center p-2 rounded-xl bg-white shadow-sm border border-slate-200 mb-3">
+          <Image
+            src="/logo.png"
+            alt="PROASI Logo"
+            width={84}
+            height={84}
+            priority
+            className="w-20 h-auto object-contain"
+          />
         </div>
         <h1 className="text-xl font-bold tracking-tight text-slate-900">
           PT PROTEKSI ALFA SOLUSI (PROASI)

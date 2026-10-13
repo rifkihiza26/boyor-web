@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
@@ -69,14 +70,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar - Enterprise Deep Navy */}
         <aside className="hidden lg:flex lg:flex-col w-60 bg-[#0f172a] text-slate-300 border-r border-[#1e293b]">
-          <div className="px-5 py-4 border-b border-[#1e293b] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded bg-[#2563eb] flex items-center justify-center text-white font-black text-sm tracking-wider">
-                PAS
+          <div className="px-4 py-3.5 border-b border-[#1e293b] flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 shadow-sm border border-slate-200">
+                <Image
+                  src="/logo.png"
+                  alt="PROASI Logo"
+                  width={32}
+                  height={32}
+                  className="w-full h-full object-contain"
+                />
               </div>
-              <div>
-                <h1 className="font-bold text-white text-sm tracking-tight">PROASI</h1>
-                <p className="text-[10px] text-slate-400 font-medium tracking-wide">PORTAL PRESENSI</p>
+              <div className="overflow-hidden">
+                <h1 className="font-bold text-white text-xs tracking-tight truncate">PROASI</h1>
+                <p className="text-[9px] text-slate-400 font-medium tracking-wide truncate">PT Proteksi Alfa Solusi</p>
               </div>
             </div>
           </div>
@@ -146,10 +153,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileMenuOpen(false)}
             />
             <div className="relative w-72 bg-[#0f172a] text-slate-200 flex flex-col h-full border-r border-[#1e293b] shadow-2xl z-10">
-              <div className="p-4 border-b border-[#1e293b] flex items-center justify-between bg-[#0a0f1d]">
+              <div className="p-3.5 border-b border-[#1e293b] flex items-center justify-between bg-[#0a0f1d]">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded bg-[#1e293b] border border-[#334155] flex items-center justify-center text-slate-100 font-bold text-xs tracking-wider">
-                    PAS
+                  <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 border border-slate-200">
+                    <Image
+                      src="/logo.png"
+                      alt="PROASI Logo"
+                      width={28}
+                      height={28}
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div>
                     <h2 className="font-bold text-white text-xs tracking-wide">PROASI PORTAL</h2>

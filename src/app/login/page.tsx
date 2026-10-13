@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Building2, ArrowRight, AlertTriangle, Lock, Mail } from 'lucide-react';
+import { ArrowRight, AlertTriangle, Lock, Mail } from 'lucide-react';
 
 export default function LoginPage() {
   const { signIn, settings } = useAuth();
@@ -36,11 +37,18 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded bg-[#0f172a] text-white mb-4 border border-[#1e293b]">
-          <Building2 className="w-6 h-6" />
+        <div className="inline-flex items-center justify-center p-2 rounded-xl bg-white shadow-sm border border-slate-200 mb-3">
+          <Image
+            src="/logo.png"
+            alt="PROASI Logo"
+            width={84}
+            height={84}
+            priority
+            className="w-20 h-auto object-contain"
+          />
         </div>
         <h1 className="text-xl font-bold tracking-tight text-slate-900">
-          {settings?.companyName || 'PROASI'}
+          PT PROTEKSI ALFA SOLUSI
         </h1>
         <p className="mt-1 text-xs text-slate-500">
           Sistem Informasi Presensi &amp; Reimbursement Staf
