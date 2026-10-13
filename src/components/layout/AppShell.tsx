@@ -87,6 +87,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   alt="PROASI Logo"
                   width={32}
                   height={32}
+                  priority
+                  unoptimized
                   className="w-full h-full object-contain"
                 />
               </div>
@@ -170,6 +172,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       alt="PROASI Logo"
                       width={28}
                       height={28}
+                      priority
+                      unoptimized
                       className="w-full h-full object-contain"
                     />
                   </div>
