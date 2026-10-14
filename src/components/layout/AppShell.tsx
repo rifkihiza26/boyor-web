@@ -45,9 +45,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (isLoaded && !currentUser.id && pathname !== '/login' && pathname !== '/register') {
-      router.push('/login');
+      window.location.href = '/login';
     }
-  }, [isLoaded, currentUser.id, pathname, router]);
+  }, [isLoaded, currentUser.id, pathname]);
+
+  // Loading state when checking authentication
+  if (!isLoaded && pathname !== '/login' && pathname !== '/register') {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-4 border-slate-300 border-t-slate-800 rounded-full animate-spin mb-4" />
+        <p className="text-xs font-semibold text-slate-600 tracking-wide">Memuat data sesi pengguna...</p>
+      </div>
+    );
+  }
 
   // Common navigation
   const navItems = [
