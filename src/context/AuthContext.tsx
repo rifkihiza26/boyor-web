@@ -74,7 +74,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Supabase Auth state listener
   useEffect(() => {
+    let isMounted = true;
+
+    // Check initial session first
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted) return;
+      if (session?.user) {
+        await loadData(session.user.id);
+      } else {
+        setCurrentUser(DEFAULT_USER);
+      }
+      setIsLoaded(true);
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return;
       if (session?.user) {
         await loadData(session.user.id);
       } else {
@@ -84,7 +98,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoaded(true);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [loadData]);
 
   // Supabase Realtime subscriptions

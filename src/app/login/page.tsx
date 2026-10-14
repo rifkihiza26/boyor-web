@@ -20,9 +20,11 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const result = await signIn(email.trim(), password);
+    const cleanEmail = email.trim().toLowerCase();
+    const result = await signIn(cleanEmail, password);
     if (result.success) {
-      router.push('/dashboard');
+      // Gunakan window.location.href agar cookies/session Supabase terbaca segar dan bersih di semua mobile browser
+      window.location.href = '/dashboard';
     } else {
       // Friendly Indonesian error messages
       let msg = result.message;
@@ -30,8 +32,8 @@ export default function LoginPage() {
       else if (msg.includes('Email not confirmed')) msg = 'Akun belum dikonfirmasi. Cek email Anda.';
       else if (msg.includes('Too many requests')) msg = 'Terlalu banyak percobaan login. Tunggu beberapa menit.';
       setError(msg);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -74,6 +76,9 @@ export default function LoginPage() {
                 <input
                   type="email"
                   required
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
