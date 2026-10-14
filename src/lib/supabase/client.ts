@@ -10,5 +10,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    // Bypass Web Locks API on iOS Safari to prevent permanent orphaned lock deadlock
+    lock: {
+      acquire: async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
+        return await fn();
+      },
+    },
   },
 });
