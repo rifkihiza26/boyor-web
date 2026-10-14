@@ -246,10 +246,15 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full mt-2 py-3 px-4 rounded bg-[#0f172a] active:bg-[#1e293b] text-white font-bold text-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 touch-manipulation select-none"
+                  onClick={(e) => {
+                    if (!loading) {
+                      handleSubmit(e);
+                    }
+                  }}
+                  className="w-full mt-2 py-3 px-4 rounded bg-[#0f172a] active:bg-[#1e293b] text-white font-bold text-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 touch-manipulation select-none relative z-10"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  {loading ? 'Mendaftarkan...' : 'Daftarkan Akun Pegawai'}
+                  <UserPlus className="w-4 h-4 pointer-events-none" />
+                  <span className="pointer-events-none">{loading ? 'Mendaftarkan...' : 'Daftarkan Akun Pegawai'}</span>
                 </button>
               </form>
 
