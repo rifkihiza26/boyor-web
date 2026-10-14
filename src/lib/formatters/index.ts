@@ -81,10 +81,6 @@ export function formatDurationMinutes(minutes?: number): string {
 }
 
 export function getTodayDateStr(): string {
-  // Deterministic seed simulation date for prototype SSR prerender
-  if (typeof window === 'undefined') {
-    return '2026-10-12';
-  }
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');

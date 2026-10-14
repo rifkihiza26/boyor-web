@@ -123,7 +123,7 @@ export default function DashboardPage() {
               Selamat Datang, {currentUser.fullName}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Tanggal Operasional: {formatDateIndo('2026-10-12')}
+              Tanggal Operasional: {formatDateIndo(todayStr)}
             </p>
           </div>
 
@@ -353,7 +353,7 @@ export default function DashboardPage() {
                 </p>
                 <div className="mt-3 pt-2 border-t border-slate-200 text-[11px] flex items-center justify-between">
                   <span className="text-rose-700 font-semibold">{lateCount} Terlambat</span>
-                  <span className="text-slate-400 font-mono">2026-10-12</span>
+                  <span className="text-slate-400 font-mono">{todayStr}</span>
                 </div>
               </div>
 
@@ -501,7 +501,7 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-slate-100">
                       {filteredEmployeesForTable.map((emp) => {
                         const att = attendanceRecords.find(
-                          (a) => a.employeeId === emp.id && a.date === '2026-10-12'
+                          (a) => a.employeeId === emp.id && a.date === todayStr
                         );
                         return (
                           <tr key={emp.id} className="hover:bg-slate-50/70 transition">
