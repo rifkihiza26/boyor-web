@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 import { ArrowRight, AlertTriangle, Lock, Mail } from 'lucide-react';
 
 export default function LoginPage() {
@@ -23,8 +24,8 @@ export default function LoginPage() {
     try {
       const cleanEmail = email.trim().toLowerCase();
       
-      // Panggil Supabase Auth secara langsung untuk kecepatan dan keandalan di mobile
-      const { data, error: authError } = await (await import('@/lib/supabase/client')).supabase.auth.signInWithPassword({
+      // Panggil Supabase Auth secara langsung
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: password,
       });
