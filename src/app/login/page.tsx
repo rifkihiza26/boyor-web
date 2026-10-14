@@ -20,18 +20,21 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const cleanEmail = email.trim().toLowerCase();
-    const result = await signIn(cleanEmail, password);
-    if (result.success) {
-      // Gunakan window.location.href agar cookies/session Supabase terbaca segar dan bersih di semua mobile browser
-      window.location.href = '/dashboard';
-    } else {
-      // Friendly Indonesian error messages
-      let msg = result.message;
-      if (msg.includes('Invalid login credentials')) msg = 'Email atau kata sandi salah. Silakan coba lagi.';
-      else if (msg.includes('Email not confirmed')) msg = 'Akun belum dikonfirmasi. Cek email Anda.';
-      else if (msg.includes('Too many requests')) msg = 'Terlalu banyak percobaan login. Tunggu beberapa menit.';
-      setError(msg);
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const result = await signIn(cleanEmail, password);
+      if (result.success) {
+        window.location.assign('/dashboard');
+      } else {
+        let msg = result.message;
+        if (msg.includes('Invalid login credentials')) msg = 'Email atau kata sandi salah. Silakan coba lagi.';
+        else if (msg.includes('Email not confirmed')) msg = 'Akun belum dikonfirmasi. Cek email Anda.';
+        else if (msg.includes('Too many requests')) msg = 'Terlalu banyak percobaan login. Tunggu beberapa menit.';
+        setError(msg);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.');
       setLoading(false);
     }
   };

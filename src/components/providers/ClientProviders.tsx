@@ -6,12 +6,20 @@ import { ToastProvider } from '@/components/ui/Toast';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
-    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch((err) => {
-          console.error('ServiceWorker registration failed: ', err);
-        });
+    // Unregister legacy ServiceWorker to avoid mobile cache intercepting authentication and HTML
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister();
+        }
       });
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          for (const name of names) {
+            caches.delete(name);
+          }
+        });
+      }
     }
   }, []);
 
