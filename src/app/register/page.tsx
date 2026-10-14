@@ -246,7 +246,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full mt-2 py-2.5 px-4 rounded bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full mt-2 py-3 px-4 rounded bg-[#0f172a] active:bg-[#1e293b] text-white font-bold text-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 touch-manipulation select-none"
                 >
                   <UserPlus className="w-4 h-4" />
                   {loading ? 'Mendaftarkan...' : 'Daftarkan Akun Pegawai'}

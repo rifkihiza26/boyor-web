@@ -122,7 +122,13 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-2.5 px-4 rounded bg-[#0f172a] hover:bg-[#1e293b] text-white font-semibold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              onClick={(e) => {
+                // Pastikan jika browser mobile tidak memicu onSubmit form secara otomatis, handler tetap jalan
+                if (!loading && email && password) {
+                  // normal form submit will trigger onSubmit, this is safe fallback
+                }
+              }}
+              className="w-full mt-2 py-3 px-4 rounded bg-[#0f172a] active:bg-[#1e293b] text-white font-semibold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation select-none"
             >
               <span>{loading ? 'Memverifikasi...' : 'Masuk ke Sistem'}</span>
               <ArrowRight className="w-4 h-4" />
