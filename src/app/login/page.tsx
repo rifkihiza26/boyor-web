@@ -22,16 +22,26 @@ export default function LoginPage() {
 
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const result = await signIn(cleanEmail, password);
-      if (result.success) {
-        window.location.assign('/dashboard');
-      } else {
-        let msg = result.message;
+      
+      // Panggil Supabase Auth secara langsung untuk kecepatan dan keandalan di mobile
+      const { data, error: authError } = await (await import('@/lib/supabase/client')).supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password,
+      });
+
+      if (authError) {
+        let msg = authError.message;
         if (msg.includes('Invalid login credentials')) msg = 'Email atau kata sandi salah. Silakan coba lagi.';
         else if (msg.includes('Email not confirmed')) msg = 'Akun belum dikonfirmasi. Cek email Anda.';
         else if (msg.includes('Too many requests')) msg = 'Terlalu banyak percobaan login. Tunggu beberapa menit.';
         setError(msg);
         setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Berhasil login, arahkan langsung ke dashboard
+        window.location.replace('/dashboard');
       }
     } catch (err: any) {
       setError(err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.');
