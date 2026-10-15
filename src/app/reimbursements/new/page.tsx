@@ -96,6 +96,11 @@ export default function NewReimbursementPage() {
   };
 
   const saveData = async (isDraft: boolean) => {
+    if (!currentUser?.id) {
+      showToast('Sesi autentikasi belum siap. Harap tunggu sebentar atau muat ulang halaman.', 'error');
+      return;
+    }
+
     setSubmitting(true);
 
     let finalAttachmentUrl = attachmentUrl;

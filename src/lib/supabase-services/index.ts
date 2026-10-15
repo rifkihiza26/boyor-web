@@ -78,6 +78,48 @@ function mapClaim(row: any, activities: ActivityLog[] = []): ReimbursementClaim 
   };
 }
 
+// Helper to reliably get valid actor details even if actor prop has empty id
+async function resolveActor(actor?: Partial<Employee>): Promise<{ id: string; fullName: string; role: string }> {
+  if (actor?.id && actor.id.trim() !== '') {
+    return {
+      id: actor.id,
+      fullName: actor.fullName || 'User',
+      role: actor.role || 'EMPLOYEE',
+    };
+  }
+
+  // Fallback ke Supabase auth session saat ini
+  const { data } = await supabase.auth.getUser();
+  const authUser = data?.user;
+  if (authUser?.id) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('id', authUser.id)
+      .maybeSingle();
+
+    if (profile) {
+      return {
+        id: profile.id,
+        fullName: profile.full_name || authUser.email || 'User',
+        role: profile.role || 'EMPLOYEE',
+      };
+    }
+
+    return {
+      id: authUser.id,
+      fullName: authUser.email || 'User',
+      role: 'EMPLOYEE',
+    };
+  }
+
+  return {
+    id: actor?.id || '',
+    fullName: actor?.fullName || 'User',
+    role: actor?.role || 'EMPLOYEE',
+  };
+}
+
 export const SupabaseService = {
   // ==========================================
   // AUTH & PROFILES
@@ -394,6 +436,13 @@ export const SupabaseService = {
     isDraft?: boolean;
     actor: Employee;
   }): Promise<{ success: boolean; message: string; claim?: ReimbursementClaim }> {
+    const actorInfo = await resolveActor(data.actor);
+    const resolvedEmployeeId = data.employeeId || actorInfo.id;
+
+    if (!resolvedEmployeeId) {
+      return { success: false, message: 'ID pengguna tidak valid. Silakan login ulang.' };
+    }
+
     const today = new Date();
     const yyyymm = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
     const rand = Math.floor(100 + Math.random() * 900);
@@ -403,7 +452,7 @@ export const SupabaseService = {
       .from('reimbursement_claims')
       .insert({
         claim_number: claimNumber,
-        employee_id: data.employeeId,
+        employee_id: resolvedEmployeeId,
         title: data.title,
         category: data.category,
         transaction_date: data.transactionDate,
@@ -419,14 +468,17 @@ export const SupabaseService = {
     if (error || !claim) return { success: false, message: error?.message || 'Gagal menyimpan klaim.' };
 
     if (!data.isDraft) {
-      await supabase.from('claim_activities').insert({
-        claim_id: claim.id,
-        actor_id: data.actor.id,
-        actor_name: data.actor.fullName,
-        actor_role: data.actor.role,
-        action: 'Pengajuan Dikirim',
-        note: 'Pengajuan klaim baru dikirim ke Atasan.',
-      });
+      const actorInfo = await resolveActor(data.actor);
+      if (actorInfo.id) {
+        await supabase.from('claim_activities').insert({
+          claim_id: claim.id,
+          actor_id: actorInfo.id,
+          actor_name: actorInfo.fullName,
+          actor_role: actorInfo.role,
+          action: 'Pengajuan Dikirim',
+          note: 'Pengajuan klaim baru dikirim ke Atasan.',
+        });
+      }
     }
 
     return {
@@ -447,40 +499,46 @@ export const SupabaseService = {
 
     if (error) return { success: false, message: error.message };
 
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId,
-      actor_id: actor.id,
-      actor_name: actor.fullName,
-      actor_role: actor.role,
-      action: 'Disetujui Direktur Utama',
-      note: note || 'Disetujui langsung oleh Direktur Utama. Siap ditransfer.',
-    });
+    const actorInfo = await resolveActor(actor);
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId,
+        actor_id: actorInfo.id,
+        actor_name: actorInfo.fullName,
+        actor_role: actorInfo.role,
+        action: 'Disetujui Direktur Utama',
+        note: note || 'Disetujui langsung oleh Direktur Utama. Siap ditransfer.',
+      });
+    }
 
     return { success: true, message: 'Klaim telah disetujui & berstatus Siap Dibayar.' };
   },
 
   async dirutQuickPay(claimId: string, actor: Employee, method: 'Transfer Bank' | 'Tunai', note?: string): Promise<{ success: boolean; message: string }> {
+    const actorInfo = await resolveActor(actor);
     const { error } = await supabase
       .from('reimbursement_claims')
       .update({
         status: 'Dibayar',
         paid_at: new Date().toISOString(),
         payment_method: method,
-        disbursed_by: actor.id,
+        disbursed_by: actorInfo.id || null,
         finance_note: note || `Telah dicairkan via ${method}`,
       })
       .eq('id', claimId);
 
     if (error) return { success: false, message: error.message };
 
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId,
-      actor_id: actor.id,
-      actor_name: actor.fullName,
-      actor_role: actor.role,
-      action: 'Pencairan Selesai',
-      note: `Dana telah ditransfer (${method}). Catatan: ${note || '-'}`,
-    });
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId,
+        actor_id: actorInfo.id,
+        actor_name: actorInfo.fullName,
+        actor_role: actorInfo.role,
+        action: 'Pencairan Selesai',
+        note: `Dana telah ditransfer (${method}). Catatan: ${note || '-'}`,
+      });
+    }
 
     return { success: true, message: 'Pembayaran reimbursement berhasil dicatat lunas.' };
   },
@@ -531,10 +589,13 @@ export const SupabaseService = {
       .update({ status: 'Menunggu Verifikasi Finance', manager_note: note || 'Disetujui Manager' })
       .eq('id', claimId);
     if (error) return { success: false, message: error.message };
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId, actor_id: actor.id, actor_name: actor.fullName, actor_role: actor.role,
-      action: 'Disetujui Manager', note: note || 'Pengajuan disetujui oleh Manager.',
-    });
+    const actorInfo = await resolveActor(actor);
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId, actor_id: actorInfo.id, actor_name: actorInfo.fullName, actor_role: actorInfo.role,
+        action: 'Disetujui Manager', note: note || 'Pengajuan disetujui oleh Manager.',
+      });
+    }
     return { success: true, message: 'Klaim disetujui oleh Manager.' };
   },
 
@@ -544,10 +605,13 @@ export const SupabaseService = {
       .update({ status: 'Ditolak Manager', manager_note: note })
       .eq('id', claimId);
     if (error) return { success: false, message: error.message };
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId, actor_id: actor.id, actor_name: actor.fullName, actor_role: actor.role,
-      action: 'Ditolak Manager', note: note || 'Pengajuan ditolak oleh Manager.',
-    });
+    const actorInfo = await resolveActor(actor);
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId, actor_id: actorInfo.id, actor_name: actorInfo.fullName, actor_role: actorInfo.role,
+        action: 'Ditolak Manager', note: note || 'Pengajuan ditolak oleh Manager.',
+      });
+    }
     return { success: true, message: 'Klaim ditolak.' };
   },
 
@@ -557,10 +621,13 @@ export const SupabaseService = {
       .update({ status: 'Siap Dibayar', finance_note: note || 'Terverifikasi Finance' })
       .eq('id', claimId);
     if (error) return { success: false, message: error.message };
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId, actor_id: actor.id, actor_name: actor.fullName, actor_role: actor.role,
-      action: 'Diverifikasi Finance', note: note || 'Klaim siap dicairkan.',
-    });
+    const actorInfo = await resolveActor(actor);
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId, actor_id: actorInfo.id, actor_name: actorInfo.fullName, actor_role: actorInfo.role,
+        action: 'Diverifikasi Finance', note: note || 'Klaim siap dicairkan.',
+      });
+    }
     return { success: true, message: 'Klaim siap dibayar.' };
   },
 
@@ -570,23 +637,29 @@ export const SupabaseService = {
       .update({ status: 'Perlu Revisi Finance', finance_note: note })
       .eq('id', claimId);
     if (error) return { success: false, message: error.message };
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId, actor_id: actor.id, actor_name: actor.fullName, actor_role: actor.role,
-      action: 'Perlu Revisi', note: note || 'Diminta revisi oleh Finance.',
-    });
+    const actorInfo = await resolveActor(actor);
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId, actor_id: actorInfo.id, actor_name: actorInfo.fullName, actor_role: actorInfo.role,
+        action: 'Perlu Revisi', note: note || 'Diminta revisi oleh Finance.',
+      });
+    }
     return { success: true, message: 'Klaim diminta revisi.' };
   },
 
   async recordPayment(claimId: string, actor: Employee, method: 'Transfer Bank' | 'Tunai', note?: string): Promise<{ success: boolean; message: string }> {
+    const actorInfo = await resolveActor(actor);
     const { error } = await supabase
       .from('reimbursement_claims')
-      .update({ status: 'Dibayar', paid_at: new Date().toISOString(), payment_method: method, disbursed_by: actor.id, finance_note: note })
+      .update({ status: 'Dibayar', paid_at: new Date().toISOString(), payment_method: method, disbursed_by: actorInfo.id || null, finance_note: note })
       .eq('id', claimId);
     if (error) return { success: false, message: error.message };
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId, actor_id: actor.id, actor_name: actor.fullName, actor_role: actor.role,
-      action: 'Pembayaran Dicatat', note: `Dibayar via ${method}. ${note || ''}`,
-    });
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId, actor_id: actorInfo.id, actor_name: actorInfo.fullName, actor_role: actorInfo.role,
+        action: 'Pembayaran Dicatat', note: `Dibayar via ${method}. ${note || ''}`,
+      });
+    }
     return { success: true, message: 'Pembayaran berhasil dicatat.' };
   },
 
@@ -596,10 +669,13 @@ export const SupabaseService = {
       .update({ status: 'Dibatalkan' })
       .eq('id', claimId);
     if (error) return { success: false, message: error.message };
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId, actor_id: actor.id, actor_name: actor.fullName, actor_role: actor.role,
-      action: 'Klaim Dibatalkan', note: 'Klaim ditarik kembali oleh pengaju.',
-    });
+    const actorInfo = await resolveActor(actor);
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId, actor_id: actorInfo.id, actor_name: actorInfo.fullName, actor_role: actorInfo.role,
+        action: 'Klaim Dibatalkan', note: 'Klaim ditarik kembali oleh pengaju.',
+      });
+    }
     return { success: true, message: 'Klaim berhasil dibatalkan.' };
   },
 
@@ -611,10 +687,13 @@ export const SupabaseService = {
 
     const { error } = await supabase.from('reimbursement_claims').update(payload).eq('id', claimId);
     if (error) return { success: false, message: error.message };
-    await supabase.from('claim_activities').insert({
-      claim_id: claimId, actor_id: actor.id, actor_name: actor.fullName, actor_role: actor.role,
-      action: 'Direvisi & Dikirim Ulang', note: 'Klaim diperbarui dan dikirim ulang.',
-    });
+    const actorInfo = await resolveActor(actor);
+    if (actorInfo.id) {
+      await supabase.from('claim_activities').insert({
+        claim_id: claimId, actor_id: actorInfo.id, actor_name: actorInfo.fullName, actor_role: actorInfo.role,
+        action: 'Direvisi & Dikirim Ulang', note: 'Klaim diperbarui dan dikirim ulang.',
+      });
+    }
     return { success: true, message: 'Klaim berhasil diperbarui dan dikirim ulang.' };
   },
 
