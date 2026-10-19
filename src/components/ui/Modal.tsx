@@ -29,9 +29,9 @@ export function Modal({
   }[maxWidth];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div
-        className={`bg-white rounded-xl shadow-xl border border-slate-200 w-full ${maxWidthClass} overflow-hidden transform transition-all`}
+        className={`bg-white rounded-xl shadow-2xl border border-slate-200 w-full ${maxWidthClass} overflow-hidden transform transition-all my-auto`}
         role="dialog"
         aria-modal="true"
       >
@@ -42,7 +42,7 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition"
+            className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition touch-manipulation cursor-pointer"
           >
             <span className="sr-only">Tutup</span>
             ✕
@@ -88,20 +88,22 @@ export function ConfirmModal({
       footer={
         <>
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition"
+            className="px-4 py-2.5 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition touch-manipulation cursor-pointer"
           >
             {cancelText}
           </button>
           <button
+            type="button"
             onClick={() => {
               onConfirm();
               onClose();
             }}
-            className={`px-4 py-2 text-sm font-medium rounded-lg text-white shadow-xs transition ${
+            className={`px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-lg text-white shadow-xs transition touch-manipulation cursor-pointer ${
               isDanger
-                ? 'bg-rose-600 hover:bg-rose-700'
-                : 'bg-indigo-600 hover:bg-indigo-700'
+                ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800'
+                : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800'
             }`}
           >
             {confirmText}
