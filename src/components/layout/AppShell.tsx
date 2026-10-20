@@ -45,9 +45,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (isLoaded && !currentUser.id && pathname !== '/login' && pathname !== '/register') {
-      window.location.href = '/login';
+      import('@/lib/supabase/client').then(({ supabase }) => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!session?.user) {
+            router.replace('/login');
+          }
+        });
+      });
     }
-  }, [isLoaded, currentUser.id, pathname]);
+  }, [isLoaded, currentUser.id, pathname, router]);
 
   // Loading state when checking authentication
   if (!isLoaded && pathname !== '/login' && pathname !== '/register') {

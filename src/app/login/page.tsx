@@ -40,9 +40,15 @@ export default function LoginPage() {
         return;
       }
 
-      if (data.user) {
-        // Berhasil login, arahkan langsung ke dashboard
-        window.location.replace('/dashboard');
+      if (data?.user) {
+        // Berhasil login: gunakan router.push untuk kelancaran navigasi Single Page App
+        router.push('/dashboard');
+        // Fallback untuk Safari jika SPA router lambat
+        setTimeout(() => {
+          if (window.location.pathname === '/login') {
+            window.location.href = '/dashboard';
+          }
+        }, 800);
       }
     } catch (err: any) {
       setError(err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.');
