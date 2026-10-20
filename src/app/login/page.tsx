@@ -39,7 +39,9 @@ export default function LoginPage() {
       // Berhasil login dan state AuthContext sudah terisi:
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.');
+      console.error('Login error:', err);
+      const errMsg = err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.';
+      setError(errMsg);
       setLoading(false);
     }
   };

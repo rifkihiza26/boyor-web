@@ -208,12 +208,13 @@ export const SupabaseService = {
   // COMPANY SETTINGS
   // ==========================================
   async getSettings(): Promise<CompanySettings> {
-    const { data } = await supabase
-      .from('company_settings')
-      .select('*')
-      .single();
+    try {
+      const { data } = await supabase
+        .from('company_settings')
+        .select('*')
+        .maybeSingle();
 
-    if (!data) {
+      if (!data) {
       return {
         companyName: 'PT PROTEKSI ALFA SOLUSI (PROASI)',
         officeName: 'Kantor Pusat PROASI',
@@ -234,6 +235,17 @@ export const SupabaseService = {
       workEndTime: data.work_end_time ? data.work_end_time.slice(0, 5) : '18:00',
       lateToleranceMinutes: data.late_tolerance_minutes || 15,
     };
+    } catch {
+      return {
+        companyName: 'PT PROTEKSI ALFA SOLUSI (PROASI)',
+        officeName: 'Kantor Pusat PROASI',
+        officeAddress: 'Jakarta, Indonesia',
+        checkInStartTime: '07:00',
+        workStartTime: '09:00',
+        workEndTime: '18:00',
+        lateToleranceMinutes: 15,
+      };
+    }
   },
 
   async updateSettings(settings: Partial<CompanySettings>): Promise<boolean> {
