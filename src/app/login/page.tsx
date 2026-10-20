@@ -123,15 +123,9 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              onClick={(e) => {
-                // Jangan biarkan Safari iOS 16 menelan event jika form submit macet
-                if (!loading) {
-                  handleLogin(e);
-                }
-              }}
-              className="w-full mt-2 py-3 px-4 rounded bg-[#0f172a] active:bg-[#1e293b] text-white font-semibold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation select-none relative z-10"
+              className="w-full mt-2 py-3 px-4 rounded bg-[#0f172a] active:bg-[#1e293b] text-white font-semibold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation select-none"
             >
-              <span className="pointer-events-none">{loading ? 'Memverifikasi...' : 'Masuk ke Sistem'}</span>
+              <span>{loading ? 'Memverifikasi...' : 'Masuk ke Sistem'}</span>
               <ArrowRight className="w-4 h-4 pointer-events-none" />
             </button>
           </form>
