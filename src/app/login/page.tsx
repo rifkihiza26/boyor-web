@@ -24,14 +24,10 @@ export default function LoginPage() {
     try {
       const cleanEmail = email.trim().toLowerCase();
       
-      // Panggil Supabase Auth secara langsung
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: password,
-      });
+      const res = await signIn(cleanEmail, password);
 
-      if (authError) {
-        let msg = authError.message;
+      if (!res.success) {
+        let msg = res.message;
         if (msg.includes('Invalid login credentials')) msg = 'Email atau kata sandi salah. Silakan coba lagi.';
         else if (msg.includes('Email not confirmed')) msg = 'Akun belum dikonfirmasi. Cek email Anda.';
         else if (msg.includes('Too many requests')) msg = 'Terlalu banyak percobaan login. Tunggu beberapa menit.';
@@ -40,16 +36,8 @@ export default function LoginPage() {
         return;
       }
 
-      if (data?.user) {
-        // Berhasil login: gunakan router.push untuk kelancaran navigasi Single Page App
-        router.push('/dashboard');
-        // Fallback untuk Safari jika SPA router lambat
-        setTimeout(() => {
-          if (window.location.pathname === '/login') {
-            window.location.href = '/dashboard';
-          }
-        }, 800);
-      }
+      // Berhasil login dan state AuthContext sudah terisi:
+      router.push('/dashboard');
     } catch (err: any) {
       setError(err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.');
       setLoading(false);

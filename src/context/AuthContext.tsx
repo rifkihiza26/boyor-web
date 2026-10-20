@@ -159,8 +159,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadData]);
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { success: false, message: error.message };
+    if (data.session?.user) {
+      await loadData(data.session.user.id);
+    }
     return { success: true, message: 'Login berhasil.' };
   };
 
