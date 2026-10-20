@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase/client';
 import {
   Employee,
+  UserRole,
   AttendanceRecord,
   ReimbursementClaim,
   CompanySettings,
@@ -132,9 +133,22 @@ export const SupabaseService = {
       .from('profiles')
       .select('*')
       .eq('id', authData.user.id)
-      .single();
+      .maybeSingle();
 
-    return profile ? mapProfileToEmployee(profile) : null;
+    if (profile) return mapProfileToEmployee(profile);
+
+    // Fallback profile from auth metadata if profile query hasn't returned
+    return {
+      id: authData.user.id,
+      employeeCode: 'PAS-TEMP',
+      fullName: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'Karyawan',
+      email: authData.user.email || '',
+      department: authData.user.user_metadata?.department || 'Umum',
+      jobTitle: authData.user.user_metadata?.job_title || 'Staf',
+      role: (authData.user.user_metadata?.role as UserRole) || 'EMPLOYEE',
+      isActive: true,
+      accountStatus: 'ACTIVE',
+    };
   },
 
   async getEmployees(): Promise<Employee[]> {

@@ -53,22 +53,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   const loadData = useCallback(async (userId?: string) => {
-    const [employees, fetchedSettings] = await Promise.all([
-      SupabaseService.getEmployees(),
-      SupabaseService.getSettings(),
-    ]);
-    setAllEmployees(employees);
-    setSettings(fetchedSettings);
+    try {
+      const [employees, fetchedSettings] = await Promise.all([
+        SupabaseService.getEmployees(),
+        SupabaseService.getSettings(),
+      ]);
+      setAllEmployees(employees);
+      setSettings(fetchedSettings);
 
-    if (userId) {
-      const profile = employees.find((e) => e.id === userId);
-      if (profile) setCurrentUser(profile);
-      else {
-        const fresh = await SupabaseService.getCurrentUser();
-        if (fresh) setCurrentUser(fresh);
+      if (userId) {
+        const profile = employees.find((e) => e.id === userId);
+        if (profile) {
+          setCurrentUser(profile);
+        } else {
+          const fresh = await SupabaseService.getCurrentUser();
+          if (fresh) {
+            setCurrentUser(fresh);
+          } else {
+            setCurrentUser({
+              ...DEFAULT_USER,
+              id: userId,
+            });
+          }
+        }
+      } else {
+        setCurrentUser(DEFAULT_USER);
       }
-    } else {
-      setCurrentUser(DEFAULT_USER);
+    } catch (err) {
+      console.error('Error loading auth data:', err);
     }
   }, []);
 
