@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Employee, UserRole, CompanySettings } from '@/types';
 import { supabase } from '@/lib/supabase/client';
 import { SupabaseService } from '@/lib/supabase-services';
@@ -45,19 +45,34 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/** Wrap a promise with a timeout so it never hangs forever */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<Employee>(DEFAULT_USER);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [gpsCondition, setGpsConditionState] = useState<'INSIDE' | 'OUTSIDE'>('OUTSIDE');
   const [isLoaded, setIsLoaded] = useState(false);
+  const loadingRef = useRef(false); // Prevent concurrent loadData calls
 
   const loadData = useCallback(async (userId?: string) => {
+    // Prevent concurrent calls - if already loading, skip
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+
     try {
+      // Fetch employees and settings with 8-second timeout each
       const [employees, fetchedSettings] = await Promise.all([
-        SupabaseService.getEmployees(),
-        SupabaseService.getSettings(),
+        withTimeout(SupabaseService.getEmployees(), 8000, []),
+        withTimeout(SupabaseService.getSettings(), 8000, DEFAULT_SETTINGS),
       ]);
+
       setAllEmployees(employees);
       setSettings(fetchedSettings);
 
@@ -66,13 +81,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (profile) {
           setCurrentUser(profile);
         } else {
-          const fresh = await SupabaseService.getCurrentUser();
+          // Profile not in employees list - try direct fetch with timeout
+          const fresh = await withTimeout(SupabaseService.getCurrentUser(), 5000, null);
           if (fresh) {
             setCurrentUser(fresh);
           } else {
+            // Absolute fallback - at least set user ID so auth guard works
             setCurrentUser({
               ...DEFAULT_USER,
               id: userId,
+              isActive: true,
+              accountStatus: 'ACTIVE',
             });
           }
         }
@@ -80,15 +99,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(DEFAULT_USER);
       }
     } catch (err) {
-      console.error('Error loading auth data:', err);
+      console.error('[AuthContext] loadData error:', err);
+      // Even on error, if we have userId, set minimal user so app doesn't stuck
+      if (userId) {
+        setCurrentUser((prev) =>
+          prev.id === userId ? prev : { ...DEFAULT_USER, id: userId, isActive: true, accountStatus: 'ACTIVE' }
+        );
+      }
+    } finally {
+      loadingRef.current = false;
     }
   }, []);
 
-  // Supabase Auth state listener
+  // Supabase Auth state listener - single source of truth
   useEffect(() => {
     let isMounted = true;
 
-    // Check initial session first
+    // 1. Check initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return;
       if (session?.user) {
@@ -96,18 +123,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setCurrentUser(DEFAULT_USER);
       }
-      setIsLoaded(true);
+      if (isMounted) setIsLoaded(true);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // 2. Listen for auth changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
-      if (session?.user) {
+
+      if (event === 'SIGNED_IN' && session?.user) {
         await loadData(session.user.id);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setCurrentUser(DEFAULT_USER);
         setAllEmployees([]);
+        setSettings(DEFAULT_SETTINGS);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Silently refresh data on token refresh
+        await loadData(session.user.id);
       }
-      setIsLoaded(true);
+
+      if (isMounted) setIsLoaded(true);
     });
 
     return () => {
@@ -159,18 +193,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadData]);
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { success: false, message: error.message };
-    if (data.session?.user) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { success: false, message: error.message };
+      if (!data.session?.user) return { success: false, message: 'Sesi tidak ditemukan setelah login.' };
+
+      // DON'T call loadData here - onAuthStateChange SIGNED_IN will handle it
+      // This prevents double-loading race condition
+      // But we DO need to wait until loadData finishes from the listener
+      // So we manually call it once to ensure data is ready before returning
       await loadData(data.session.user.id);
+
+      return { success: true, message: 'Login berhasil.' };
+    } catch (err: any) {
+      console.error('[AuthContext] signIn error:', err);
+      return { success: false, message: err?.message || 'Terjadi kesalahan saat login.' };
     }
-    return { success: true, message: 'Login berhasil.' };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('[AuthContext] signOut error:', err);
+    }
     setCurrentUser(DEFAULT_USER);
     setAllEmployees([]);
+    setSettings(DEFAULT_SETTINGS);
   };
 
   const setGpsCondition = (condition: 'INSIDE' | 'OUTSIDE') => {

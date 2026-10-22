@@ -45,13 +45,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (isLoaded && !currentUser.id && pathname !== '/login' && pathname !== '/register') {
-      import('@/lib/supabase/client').then(({ supabase }) => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (!session?.user) {
-            router.replace('/login');
-          }
-        });
-      });
+      // AuthContext already checked the session - if no user ID, redirect to login
+      router.replace('/login');
     }
   }, [isLoaded, currentUser.id, pathname, router]);
 
@@ -162,13 +157,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             </div>
-            <Link
-              href="/login"
+            <button
+              type="button"
               title="Keluar"
-              className="text-slate-400 hover:text-white p-1.5 rounded hover:bg-[#1e293b] transition shrink-0"
+              onClick={async () => { await signOut(); router.replace('/login'); }}
+              className="text-slate-400 hover:text-white p-1.5 rounded hover:bg-[#1e293b] transition shrink-0 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
-            </Link>
+            </button>
           </div>
         </aside>
 
@@ -252,12 +248,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
                   </div>
                 </div>
-                <Link
-                  href="/login"
-                  className="text-slate-400 hover:text-white p-1.5 rounded hover:bg-[#1e293b]"
+                <button
+                  type="button"
+                  onClick={async () => { await signOut(); router.replace('/login'); }}
+                  className="text-slate-400 hover:text-white p-1.5 rounded hover:bg-[#1e293b] cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -303,12 +300,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <RoleBadge role="EMPLOYEE" />
                 )}
               </div>
-              <Link
-                href="/login"
-                className="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 px-2.5 py-1 rounded transition"
+              <button
+                type="button"
+                onClick={async () => { await signOut(); router.replace('/login'); }}
+                className="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 px-2.5 py-1 rounded transition cursor-pointer"
               >
                 Keluar
-              </Link>
+              </button>
             </div>
           </header>
 

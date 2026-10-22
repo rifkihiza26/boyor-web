@@ -1,30 +1,55 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase/client';
 import { ArrowRight, AlertTriangle, Lock, Mail } from 'lucide-react';
 
 export default function LoginPage() {
-  const { signIn, settings } = useAuth();
+  const { signIn, currentUser, isLoaded } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // If already logged in, redirect to dashboard
+  useEffect(() => {
+    if (isLoaded && currentUser.id) {
+      router.replace('/dashboard');
+    }
+  }, [isLoaded, currentUser.id, router]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
+    // Safety timeout: if signIn takes longer than 15 seconds, show error
+    timeoutRef.current = setTimeout(() => {
+      setLoading(false);
+      setError('Koneksi terlalu lama. Periksa koneksi internet Anda dan coba lagi.');
+    }, 15000);
+
     try {
       const cleanEmail = email.trim().toLowerCase();
-      
       const res = await signIn(cleanEmail, password);
+
+      // Clear the safety timeout since signIn returned
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
 
       if (!res.success) {
         let msg = res.message;
@@ -36,9 +61,14 @@ export default function LoginPage() {
         return;
       }
 
-      // Berhasil login dan state AuthContext sudah terisi:
-      router.push('/dashboard');
+      // Success - navigate to dashboard
+      // Use window.location for a hard navigation to avoid Next.js router caching issues
+      window.location.href = '/dashboard';
     } catch (err: any) {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       console.error('Login error:', err);
       const errMsg = err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.';
       setError(errMsg);
