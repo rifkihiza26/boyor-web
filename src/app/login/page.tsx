@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowRight, AlertTriangle, Lock, Mail } from 'lucide-react';
+import { ArrowRight, AlertTriangle, Lock, Mail, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const { signIn, currentUser, isLoaded } = useAuth();
@@ -14,14 +14,20 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Mark component as hydrated/mounted
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // If already logged in, redirect to dashboard
   useEffect(() => {
     if (isLoaded && currentUser.id) {
-      router.replace('/dashboard');
+      window.location.href = '/dashboard';
     }
-  }, [isLoaded, currentUser.id, router]);
+  }, [isLoaded, currentUser.id]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -30,8 +36,13 @@ export default function LoginPage() {
     };
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async () => {
+    if (loading || !mounted) return;
+    if (!email.trim() || !password) {
+      setError('Harap isi email dan kata sandi.');
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
@@ -61,8 +72,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Success - navigate to dashboard
-      // Use window.location for a hard navigation to avoid Next.js router caching issues
+      // Success - hard navigation to dashboard
       window.location.href = '/dashboard';
     } catch (err: any) {
       if (timeoutRef.current) {
@@ -75,6 +85,17 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Handle Enter key on password field
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleLogin();
+    }
+  };
+
+  // Button is only enabled when JS is hydrated and not currently loading
+  const isButtonReady = mounted && !loading;
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -99,7 +120,8 @@ export default function LoginPage() {
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 border border-slate-300 rounded-md sm:px-8">
-          <form onSubmit={handleLogin} className="space-y-4">
+          {/* NO <form> tag - prevents native form submission entirely */}
+          <div className="space-y-4">
             {error && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-700 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -122,6 +144,7 @@ export default function LoginPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder="nama@email.com"
                   className="w-full pl-9 pr-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-300 rounded focus:border-slate-700 focus:outline-hidden transition"
                 />
@@ -140,6 +163,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder="••••••••"
                   className="w-full pl-9 pr-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-300 rounded focus:border-slate-700 focus:outline-hidden transition"
                 />
@@ -147,14 +171,30 @@ export default function LoginPage() {
             </div>
 
             <button
-              type="submit"
-              disabled={loading}
+              type="button"
+              disabled={!isButtonReady}
+              onClick={handleLogin}
               className="w-full mt-2 py-3 px-4 rounded bg-[#0f172a] active:bg-[#1e293b] text-white font-semibold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation select-none"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <span>{loading ? 'Memverifikasi...' : 'Masuk ke Sistem'}</span>
-              <ArrowRight className="w-4 h-4 pointer-events-none" />
+              {!mounted ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Memuat...</span>
+                </>
+              ) : loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Memverifikasi...</span>
+                </>
+              ) : (
+                <>
+                  <span>Masuk ke Sistem</span>
+                  <ArrowRight className="w-4 h-4 pointer-events-none" />
+                </>
+              )}
             </button>
-          </form>
+          </div>
 
           <div className="mt-6 pt-5 border-t border-slate-200 text-center">
             <p className="text-xs text-slate-500">
