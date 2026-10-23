@@ -3,41 +3,35 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase/client';
 import { ArrowRight, AlertTriangle, Lock, Mail, Loader2 } from 'lucide-react';
-
-// Create a standalone Supabase client just for login
-// This avoids any dependency on AuthContext or shared client state
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zckysqcytofpxfuqaexe.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpja3lzcWN5dG9mcHhmdXFhZXhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3ODk3MDEsImV4cCI6MjEwNzM2NTcwMX0.Ldpy1Bqd_tJmlTOtE8_DOShQLfg3YLl885zaGBKbpVI';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [ready, setReady] = useState(false);
 
-  // On mount: check if already logged in, redirect if so
+  // On mount: clear any stale session, then show login form
   useEffect(() => {
-    const client = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true },
-    });
+    let cancelled = false;
 
-    client.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        // Already logged in - go to dashboard
-        window.location.href = '/dashboard';
-      } else {
-        setCheckingSession(false);
+    async function prepare() {
+      try {
+        // Always sign out when visiting /login - clears stale sessions
+        await supabase.auth.signOut();
+      } catch {
+        // Ignore signOut errors
       }
-    }).catch(() => {
-      setCheckingSession(false);
-    });
+      if (!cancelled) setReady(true);
+    }
 
-    // Safety: if getSession hangs, show login form after 3 seconds anyway
-    const timer = setTimeout(() => setCheckingSession(false), 3000);
-    return () => clearTimeout(timer);
+    prepare();
+
+    // Safety: show form after 2 seconds no matter what
+    const timer = setTimeout(() => { if (!cancelled) setReady(true); }, 2000);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   const handleLogin = async () => {
@@ -53,12 +47,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Create fresh client for login attempt
-      const client = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { persistSession: true, autoRefreshToken: true },
-      });
-
-      const { error: authError } = await client.auth.signInWithPassword({
+      const { error: authError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       });
@@ -73,7 +62,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Login successful! Hard redirect - AuthContext will pick up session on dashboard page
+      // Success - hard redirect so AuthContext picks up the fresh session
       window.location.href = '/dashboard';
     } catch (err: any) {
       console.error('Login error:', err);
@@ -82,7 +71,6 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -90,12 +78,12 @@ export default function LoginPage() {
     }
   };
 
-  // Show minimal loading while checking existing session
-  if (checkingSession) {
+  // Brief loading while clearing stale session
+  if (!ready) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
         <div className="w-10 h-10 border-4 border-slate-300 border-t-slate-800 rounded-full animate-spin mb-4" />
-        <p className="text-xs font-semibold text-slate-600 tracking-wide">Memeriksa sesi...</p>
+        <p className="text-xs font-semibold text-slate-600 tracking-wide">Menyiapkan halaman login...</p>
       </div>
     );
   }
