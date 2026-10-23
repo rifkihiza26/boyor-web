@@ -1,44 +1,50 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { createClient } from '@supabase/supabase-js';
 import { ArrowRight, AlertTriangle, Lock, Mail, Loader2 } from 'lucide-react';
 
+// Create a standalone Supabase client just for login
+// This avoids any dependency on AuthContext or shared client state
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zckysqcytofpxfuqaexe.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpja3lzcWN5dG9mcHhmdXFhZXhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3ODk3MDEsImV4cCI6MjEwNzM2NTcwMX0.Ldpy1Bqd_tJmlTOtE8_DOShQLfg3YLl885zaGBKbpVI';
+
 export default function LoginPage() {
-  const { signIn, currentUser, isLoaded } = useAuth();
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
 
-  // Mark component as hydrated/mounted
+  // On mount: check if already logged in, redirect if so
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: true, autoRefreshToken: true },
+    });
 
-  // If already logged in, redirect to dashboard
-  useEffect(() => {
-    if (isLoaded && currentUser.id) {
-      window.location.href = '/dashboard';
-    }
-  }, [isLoaded, currentUser.id]);
+    client.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        // Already logged in - go to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        setCheckingSession(false);
+      }
+    }).catch(() => {
+      setCheckingSession(false);
+    });
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
+    // Safety: if getSession hangs, show login form after 3 seconds anyway
+    const timer = setTimeout(() => setCheckingSession(false), 3000);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleLogin = async () => {
-    if (loading || !mounted) return;
-    if (!email.trim() || !password) {
+    if (loading) return;
+
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !password) {
       setError('Harap isi email dan kata sandi.');
       return;
     }
@@ -46,24 +52,19 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    // Safety timeout: if signIn takes longer than 15 seconds, show error
-    timeoutRef.current = setTimeout(() => {
-      setLoading(false);
-      setError('Koneksi terlalu lama. Periksa koneksi internet Anda dan coba lagi.');
-    }, 15000);
-
     try {
-      const cleanEmail = email.trim().toLowerCase();
-      const res = await signIn(cleanEmail, password);
+      // Create fresh client for login attempt
+      const client = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { persistSession: true, autoRefreshToken: true },
+      });
 
-      // Clear the safety timeout since signIn returned
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      const { error: authError } = await client.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
 
-      if (!res.success) {
-        let msg = res.message;
+      if (authError) {
+        let msg = authError.message;
         if (msg.includes('Invalid login credentials')) msg = 'Email atau kata sandi salah. Silakan coba lagi.';
         else if (msg.includes('Email not confirmed')) msg = 'Akun belum dikonfirmasi. Cek email Anda.';
         else if (msg.includes('Too many requests')) msg = 'Terlalu banyak percobaan login. Tunggu beberapa menit.';
@@ -72,21 +73,16 @@ export default function LoginPage() {
         return;
       }
 
-      // Success - hard navigation to dashboard
+      // Login successful! Hard redirect - AuthContext will pick up session on dashboard page
       window.location.href = '/dashboard';
     } catch (err: any) {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
       console.error('Login error:', err);
-      const errMsg = err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.';
-      setError(errMsg);
+      setError(err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.');
       setLoading(false);
     }
   };
 
-  // Handle Enter key on password field
+  // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -94,8 +90,15 @@ export default function LoginPage() {
     }
   };
 
-  // Button is only enabled when JS is hydrated and not currently loading
-  const isButtonReady = mounted && !loading;
+  // Show minimal loading while checking existing session
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-4 border-slate-300 border-t-slate-800 rounded-full animate-spin mb-4" />
+        <p className="text-xs font-semibold text-slate-600 tracking-wide">Memeriksa sesi...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -120,7 +123,6 @@ export default function LoginPage() {
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 border border-slate-300 rounded-md sm:px-8">
-          {/* NO <form> tag - prevents native form submission entirely */}
           <div className="space-y-4">
             {error && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-700 flex items-start gap-2">
@@ -137,10 +139,9 @@ export default function LoginPage() {
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
-                  required
                   autoCapitalize="none"
                   autoCorrect="off"
-                  spellCheck="false"
+                  spellCheck={false}
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -159,7 +160,6 @@ export default function LoginPage() {
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
-                  required
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -172,17 +172,12 @@ export default function LoginPage() {
 
             <button
               type="button"
-              disabled={!isButtonReady}
+              disabled={loading}
               onClick={handleLogin}
               className="w-full mt-2 py-3 px-4 rounded bg-[#0f172a] active:bg-[#1e293b] text-white font-semibold text-sm transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation select-none"
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              {!mounted ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Memuat...</span>
-                </>
-              ) : loading ? (
+              {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Memverifikasi...</span>
