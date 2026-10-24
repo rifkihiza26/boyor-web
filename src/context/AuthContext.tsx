@@ -45,7 +45,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/** Wrap a promise with a timeout so it never hangs forever */
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([
     promise,
@@ -59,63 +58,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [gpsCondition, setGpsConditionState] = useState<'INSIDE' | 'OUTSIDE'>('OUTSIDE');
   const [isLoaded, setIsLoaded] = useState(false);
-  const loadingRef = useRef(false); // Prevent concurrent loadData calls
+  const loadingRef = useRef(false);
 
   const loadData = useCallback(async (userId?: string) => {
-    // Prevent concurrent calls - if already loading, skip
+    if (!userId) {
+      setCurrentUser(DEFAULT_USER);
+      setAllEmployees([]);
+      return;
+    }
+
     if (loadingRef.current) return;
     loadingRef.current = true;
 
     try {
-      // Fetch employees and settings with 8-second timeout each
+      // Step 1: Immediately fetch current user's profile first so authentication succeeds immediately
+      const profilePromise = Promise.resolve(
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+      );
+      const myProfile: any = await withTimeout(
+        profilePromise,
+        4000,
+        { data: null, error: null } as any
+      );
+
+      if (myProfile.data) {
+        const row: any = myProfile.data;
+        setCurrentUser({
+          id: row.id,
+          employeeCode: row.employee_code || '',
+          fullName: row.full_name || '',
+          email: row.email || '',
+          department: row.department || 'Umum',
+          jobTitle: row.job_title || 'Staf',
+          role: (row.role as UserRole) || 'EMPLOYEE',
+          isActive: row.is_active ?? true,
+          accountStatus: row.account_status || 'ACTIVE',
+          phone: row.phone,
+          avatarUrl: row.avatar_url,
+          bankAccount: row.bank_name ? {
+            bankName: row.bank_name,
+            accountNumber: row.bank_account_number || '',
+            accountHolder: row.bank_account_holder || '',
+          } : undefined,
+        });
+      } else {
+        // Fallback user if profile fetch timed out or not yet inserted
+        setCurrentUser((prev) => (prev.id === userId ? prev : {
+          ...DEFAULT_USER,
+          id: userId,
+          isActive: true,
+          accountStatus: 'ACTIVE',
+        }));
+      }
+
+      // Step 2: Fetch all employees and settings concurrently (non-blocking for auth)
       const [employees, fetchedSettings] = await Promise.all([
-        withTimeout(SupabaseService.getEmployees(), 8000, []),
-        withTimeout(SupabaseService.getSettings(), 8000, DEFAULT_SETTINGS),
+        withTimeout(SupabaseService.getEmployees(), 6000, []),
+        withTimeout(SupabaseService.getSettings(), 5000, DEFAULT_SETTINGS),
       ]);
 
-      setAllEmployees(employees);
-      setSettings(fetchedSettings);
-
-      if (userId) {
-        const profile = employees.find((e) => e.id === userId);
-        if (profile) {
-          setCurrentUser(profile);
-        } else {
-          // Profile not in employees list - try direct fetch with timeout
-          const fresh = await withTimeout(SupabaseService.getCurrentUser(), 5000, null);
-          if (fresh) {
-            setCurrentUser(fresh);
-          } else {
-            // Absolute fallback - at least set user ID so auth guard works
-            setCurrentUser({
-              ...DEFAULT_USER,
-              id: userId,
-              isActive: true,
-              accountStatus: 'ACTIVE',
-            });
-          }
-        }
-      } else {
-        setCurrentUser(DEFAULT_USER);
-      }
+      if (employees.length > 0) setAllEmployees(employees);
+      if (fetchedSettings) setSettings(fetchedSettings);
     } catch (err) {
       console.error('[AuthContext] loadData error:', err);
-      // Even on error, if we have userId, set minimal user so app doesn't stuck
-      if (userId) {
-        setCurrentUser((prev) =>
-          prev.id === userId ? prev : { ...DEFAULT_USER, id: userId, isActive: true, accountStatus: 'ACTIVE' }
-        );
-      }
+      setCurrentUser((prev) => (prev.id === userId ? prev : {
+        ...DEFAULT_USER,
+        id: userId,
+        isActive: true,
+        accountStatus: 'ACTIVE',
+      }));
     } finally {
       loadingRef.current = false;
     }
   }, []);
 
-  // Supabase Auth state listener - single source of truth
+  // Supabase Auth listener with hard safety timeout for isLoaded
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Check initial session
+    // Safety timeout: isLoaded MUST be true within 2.5 seconds no matter what
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) setIsLoaded(true);
+    }, 2500);
+
+    // Initial session check
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return;
       if (session?.user) {
@@ -124,20 +150,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(DEFAULT_USER);
       }
       if (isMounted) setIsLoaded(true);
+    }).catch(() => {
+      if (isMounted) setIsLoaded(true);
     });
 
-    // 2. Listen for auth changes (login, logout, token refresh)
+    // Auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
         await loadData(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(DEFAULT_USER);
         setAllEmployees([]);
         setSettings(DEFAULT_SETTINGS);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        // Silently refresh data on token refresh
         await loadData(session.user.id);
       }
 
@@ -146,11 +173,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, [loadData]);
 
-  // Supabase Realtime subscriptions
+  // Realtime updates
   useEffect(() => {
     const profileChannel = supabase
       .channel('rt-profiles')
@@ -196,18 +224,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { success: false, message: error.message };
-      if (!data.session?.user) return { success: false, message: 'Sesi tidak ditemukan setelah login.' };
+      if (!data.session?.user) return { success: false, message: 'Sesi login tidak terbentuk.' };
 
-      // DON'T call loadData here - onAuthStateChange SIGNED_IN will handle it
-      // This prevents double-loading race condition
-      // But we DO need to wait until loadData finishes from the listener
-      // So we manually call it once to ensure data is ready before returning
       await loadData(data.session.user.id);
-
       return { success: true, message: 'Login berhasil.' };
     } catch (err: any) {
       console.error('[AuthContext] signIn error:', err);
-      return { success: false, message: err?.message || 'Terjadi kesalahan saat login.' };
+      return { success: false, message: err?.message || 'Terjadi kesalahan saat masuk.' };
     }
   };
 
@@ -239,7 +262,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoaded,
         signIn,
         signOut,
-        // Legacy no-op shims
         switchUser: () => {},
         resetDemoData: () => {},
       }}

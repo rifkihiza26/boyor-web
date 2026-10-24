@@ -11,27 +11,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
 
-  // On mount: clear any stale session, then show login form
+  // If already logged in, redirect directly to dashboard
   useEffect(() => {
-    let cancelled = false;
-
-    async function prepare() {
-      try {
-        // Always sign out when visiting /login - clears stale sessions
-        await supabase.auth.signOut();
-      } catch {
-        // Ignore signOut errors
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        window.location.href = '/dashboard';
       }
-      if (!cancelled) setReady(true);
-    }
-
-    prepare();
-
-    // Safety: show form after 2 seconds no matter what
-    const timer = setTimeout(() => { if (!cancelled) setReady(true); }, 2000);
-    return () => { cancelled = true; clearTimeout(timer); };
+    });
   }, []);
 
   const handleLogin = async () => {
@@ -39,7 +26,7 @@ export default function LoginPage() {
 
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !password) {
-      setError('Harap isi email dan kata sandi.');
+      setError('Harap masukkan alamat email dan kata sandi.');
       return;
     }
 
@@ -47,26 +34,35 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       });
 
       if (authError) {
         let msg = authError.message;
-        if (msg.includes('Invalid login credentials')) msg = 'Email atau kata sandi salah. Silakan coba lagi.';
-        else if (msg.includes('Email not confirmed')) msg = 'Akun belum dikonfirmasi. Cek email Anda.';
-        else if (msg.includes('Too many requests')) msg = 'Terlalu banyak percobaan login. Tunggu beberapa menit.';
+        if (msg.includes('Invalid login credentials')) {
+          msg = 'Email atau kata sandi tidak cocok. Silakan cek kembali.';
+        } else if (msg.includes('Email not confirmed')) {
+          msg = 'Akun belum dikonfirmasi melalui tautan email.';
+        } else if (msg.includes('Too many requests')) {
+          msg = 'Terlalu banyak percobaan masuk. Harap tunggu sebentar.';
+        }
         setError(msg);
         setLoading(false);
         return;
       }
 
-      // Success - hard redirect so AuthContext picks up the fresh session
-      window.location.href = '/dashboard';
+      if (data?.session) {
+        // Redirect directly to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        setError('Sesi login tidak terbentuk. Coba kembali.');
+        setLoading(false);
+      }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err?.message || 'Gagal menghubungi server. Periksa koneksi internet Anda.');
+      setError(err?.message || 'Gagal menghubungi server. Periksa jaringan internet Anda.');
       setLoading(false);
     }
   };
@@ -77,16 +73,6 @@ export default function LoginPage() {
       handleLogin();
     }
   };
-
-  // Brief loading while clearing stale session
-  if (!ready) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
-        <div className="w-10 h-10 border-4 border-slate-300 border-t-slate-800 rounded-full animate-spin mb-4" />
-        <p className="text-xs font-semibold text-slate-600 tracking-wide">Menyiapkan halaman login...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
